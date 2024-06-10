@@ -1,0 +1,133 @@
+---
+title: "shiny_app_final"
+author: "Shelby Santos"
+date: "2024-06-08"
+output: html_document
+runtime: shiny
+---
+```{r echo=FALSE, warning=FALSE, message = FALSE}
+# TESTING PATHS
+#topology_path <- "3BRIa_dros89_proper_ss_adjusted.pdb"
+#trajectory_path <- "/Users/santossh/Documents/OHSU/spring_2024/BMI 625/final/shiny_deploy/3BRIa_dros89_350mM_NaCl_4us_md3_noPBC_nojump_special.dcd"
+# '/Users/santossh/Documents/OHSU/spring_2024/BMI 625/final/shiny_deploy/3BRIa_dros89_350mM_NaCl_4us_md3_noPBC_nojump_special.dcd' 
+
+#dcd <- read.dcd(trajectory_path)
+#pdb <- read.pdb(topology_path)
+```
+
+```{r echo=FALSE, warning=FALSE, message = FALSE}
+memory.limit(size=12000)
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+install.packages("bio3d")
+library(bio3d)
+library(shiny)
+library(plotly)
+
+# Define UI for application
+ui <- fluidPage(
+    # Application title
+    titlePanel("3D PCA Visualization of Molecular Dynamics Data"),
+    
+    # Sidebar with a simple input to trigger the PCA calculation
+    sidebarLayout(
+        sidebarPanel(
+            actionButton("btn", "Run PCA")
+        ),
+        
+        # Show a plotly output
+        mainPanel(
+           plotlyOutput("pcaPlot")
+        )
+    )
+)
+
+# Define server logic
+server <- function(input, output) {
+    pca_result <- eventReactive(input$btn, {
+        # Load your data here. For example:
+        #pdb <- read.pdb("path_to_your_pdb_file.pdb")
+        # Assuming pdb$xyz is already loaded for example purposes:
+        #pc <- pca.xyz(pdb$xyz)
+        
+        topology_path <- "3BRIa_dros89_proper_ss_adjusted.pdb"
+        trajectory_path <- "3BRIa_dros89_350mM_NaCl_4us_md3_noPBC_nojump_special.dcd"
+        
+        dcd <- read.dcd(trajectory_path)
+        pdb <- read.pdb(topology_path)
+        ca.inds <- atom.select(pdb, elety="CA")
+        xyz <- fit.xyz(fixed=pdb$xyz, mobile=dcd,
+               fixed.inds=ca.inds$xyz,
+               mobile.inds=ca.inds$xyz)
+        pc <- pca.xyz(xyz[,ca.inds$xyz])
+        pc
+    })
+
+    output$pcaPlot <- renderPlotly({
+        req(pca_result())
+        pc <- pca_result()
+        
+        # Generate color vector for plotting
+        # colored by time 
+        bwr.colors <- colorRampPalette(c("blue", "white", "red")) 
+        color_vector <- bwr.colors(nrow(pc$z)) 
+        plot_ly(x = ~pc$z[,1], y = ~pc$z[,2], z = ~pc$z[,3], 
+                type = 'scatter3d', mode = 'markers',
+                marker = list(size = 5, color = color_vector))
+        # color by cluster
+        hc <- hclust(dist(pc$z[,1:3]))
+        grps <- cutree(hc, k=3)
+        color_palette <- colorRampPalette(c("purple", 'green',"orange")) 
+        color_vector <- color_palette(length(unique(grps)))
+        cluster_colors <- color_vector[grps]
+        # Create the plotly plot
+        plot_ly(x = ~pc$z[,1], y = ~pc$z[,2], z = ~pc$z[,3], 
+                type = 'scatter3d', mode = 'markers',
+                marker = list(size = 5, color = ~cluster_colors))
+        # rmsd plot 
+        # rd <- rmsd(xyz[1,ca.inds$xyz], xyz[,ca.inds$xyz])
+        # plot(rd, typ="l", ylab="RMSD", xlab="Time")
+    })
+}
+
+# Run the application
+shinyApp(ui = ui, server = server)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
